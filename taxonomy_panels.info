@@ -1,0 +1,7 @@
+name = Taxonomy panels
+description = Creates path overrides for taxnomy edit paths
+package = Chaos tool suite
+dependencies[] = ctools
+dependencies[] = panels
+dependencies[] = page_manager
+core = 7.x
