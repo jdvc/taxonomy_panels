@@ -25,7 +25,7 @@ function taxonomy_panels_term_edit_page_manager_tasks() {
     'get context placeholders' => 'taxonomy_panels_term_edit_get_contexts',
 
     // Allow this to be enabled or disabled:
-    'disabled' => variable_get('page_manager_term_edit_disabled', TRUE),
+    'disabled' => variable_get('taxonomy_panels_term_edit_disabled', TRUE),
     'enable callback' => 'taxonomy_panels_term_edit_enable',
     'access callback' => 'taxonomy_panels_term_edit_access_check',
   );
@@ -41,17 +41,13 @@ function taxonomy_panels_term_edit_menu_alter(&$items, $task) {
   dpm('TEST');
   dpm('taxonomy_panels_term_edit_menu_alter');
   if (variable_get('taxonomy_panels_term_edit_disabled', TRUE)) {
-    dpm('taxonomy_panels_term_edit_menu_alter');
     return;
   }
 
   $callback = $items['taxonomy/term/%taxonomy_term/edit']['page callback'];
-  dpm($callback);
   // Override the term edit handler for our purpose.
   if ($callback == 'drupal_get_form' || variable_get('taxonomy_panels_override_anyway', FALSE)) {
     // this is overriding the menu system
-    dpm($items);
-    dpm('menu_alter');
     $items['taxonomy/term/%taxonomy_term/edit']['page callback'] = 'taxonomy_panels_term_edit';
     $items['taxonomy/term/%taxonomy_term/edit']['file path'] = $task['path'];
     $items['taxonomy/term/%taxonomy_term/edit']['file'] = $task['file'];
@@ -64,7 +60,7 @@ function taxonomy_panels_term_edit_menu_alter(&$items, $task) {
     return;
   }
 
-  // Also catch node/add handling:
+  //Also catch node/add handling:
   foreach (taxonomy_get_vocabularies() as $type) {
     $path = 'taxonomy/' . str_replace('_', '-', $type->type) . '/add';
     if ($items[$path]['page callback'] != 'drupal_get_form') {
@@ -92,11 +88,8 @@ function taxonomy_panels_term_edit_menu_alter(&$items, $task) {
  * term edit, which is drupal_get_form() with extra arguments...
  */
 function taxonomy_panels_term_edit($term) {
-  dpm('page_manager_term_edit');
-  // Load my task plugin
-  dpm($term);
+
   $task = page_manager_get_task('term_edit');
-  dpm($task);
   //$task = taxonomy_panels_get_task('term_edit');
 
   // Load the node into a context.
@@ -113,7 +106,6 @@ function taxonomy_panels_term_edit($term) {
     $context = reset($contexts);
     $output = $context->form;
   }
-  dpm($output);
 
   return $output;
 }
@@ -128,7 +120,6 @@ function taxonomy_panels_term_edit($term) {
  * already checked by the menu system.
  */
 function taxonomy_panels_term_add($type) {
-  dpm('taxonomy_panels_term_add');
   global $user;
 
   $types = taxonomy_get_vocabularies();
@@ -152,44 +143,24 @@ function taxonomy_panels_term_add($type) {
  * create dummy arguments that contain the needed data.
  */
 function taxonomy_panels_term_edit_get_arguments($task, $subtask_id) {
-  // $task_array = array(
-  //   array(
-  //     'keyword' => 'term',
-  //     'identifier' => t('Term being edited'),
-  //     'tid' => 1,
-  //     'name' => 'term_edit',
-  //     'settings' => array(),
-  //   ),
-  // ); 
-  // dpm($task_array);
-  return array(
+  $task_array = array(
     array(
       'keyword' => 'term',
-      /* 'identifier' => page_manager_term_view_get_type() == 'multiple' ? t('Term(s) being viewed') : t('Term being viewed'), */
       'identifier' => t('Term being edited'),
       'id' => 1,
-      //'name' => page_manager_term_view_get_type() == 'multiple' ? 'terms' : 'term',
       'name' => 'term_edit',
-      //'settings' => array('input_form' => 'tid', 'breadcrumb' => variable_get('page_manager_taxonomy_breadcrumb', TRUE)),
-      'settings' => array(),
-      'default' => '404',
-    ),
-    array(
-      'keyword' => 'depth',
-      'identifier' => t('Depth'),
-      'id' => 1,
-      'name' => 'string',
       'settings' => array(),
     ),
-  );
+  ); 
+  // dpm($task_array);
+  //
+
 }
 
 /**
  * Callback to get context placeholders provided by this handler.
  */
 function taxonomy_panels_term_edit_get_contexts($task, $subtask_id) {
-  dpm('contexts');
-  dpm(ctools_context_get_placeholders_from_argument(taxonomy_panels_term_edit_get_arguments($task, $subtask_id)));
   return ctools_context_get_placeholders_from_argument(taxonomy_panels_term_edit_get_arguments($task, $subtask_id));
 }
 

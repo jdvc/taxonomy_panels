@@ -6,9 +6,7 @@
  */
 
 function taxonomy_panels_ctools_plugin_directory($module, $plugin) {
-  dpm('test');
   if ($module === 'page_manager') {
-    dpm($module);
     return 'plugins/' . $plugin;
   }
 }
