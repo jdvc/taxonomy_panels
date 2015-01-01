@@ -1,24 +1,26 @@
 <?php
 /**
+ * @file
+ * Overrides the taxonomy term add/edit page.
+ *
  * Specialized implementation of hook_page_manager_task_tasks(). See api-task.html for
  * more information.
  */
 function taxonomy_panels_term_edit_page_manager_tasks() {
-  dpm('first_functin');
   return array(
     // This is a 'page' task and will fall under the page admin UI
     'task type' => 'page',
 
     'title' => t('Term add/edit form'),
     'admin title' => t('Term add/edit form'),
-    'admin description' => t('When enabled, this overrides the default Drupal behavior for adding or edit nodes at <em>node/%node/edit</em> and <em>node/add/%node_type</em>. If you add variants, you may use selection criteria such as node type or language or user access to provide different edit forms for nodes. If no variant is selected, the default Drupal node edit will be used.'),
+    'admin description' => t('When enabled, this overrides the default Drupal behavior for adding or edit taxonomy terms at <em>taxonomy/term/%taxonomy_term/edit</em> and <em>admin/structure/taxonomy/%taxonomy_vocabulary_machine_name/add</em>. If you add variants, you may use selection criteria such as vocabulary or user access to provide different edit forms for terms. If no variant is selected, the default Drupal term edit will be used.'),
     'admin path' => 'taxonomy/term/%taxonomy_term/edit',
 
     // Menu hooks so that we can alter the term/%taxonomy_term/edit menu entry to point to us.
     'hook menu' => 'taxonomy_panels_term_edit_menu',
     'hook menu alter' => 'taxonomy_panels_term_edit_menu_alter',
 
-    // This is task uses 'context' handlers and must implement these to give the
+    // This task uses 'context' handlers and must implement these to give the
     // handler data it needs.
     'handler type' => 'context',
     'get arguments' => 'taxonomy_panels_term_edit_get_arguments',
@@ -32,14 +34,12 @@ function taxonomy_panels_term_edit_page_manager_tasks() {
 }
 
 /**
- * Callback defined by term_edit_term_edit_page_manager_tasks().
+ * Callback defined by taxonomy_panels_term_edit_page_manager_tasks().
  *
  * Alter the term edit input so that term edit comes to us rather than the
  * normal term edit process.
  */
 function taxonomy_panels_term_edit_menu_alter(&$items, $task) {
-  dpm('TEST');
-  dpm('taxonomy_panels_term_edit_menu_alter');
   if (variable_get('taxonomy_panels_term_edit_disabled', TRUE)) {
     return;
   }
@@ -47,8 +47,8 @@ function taxonomy_panels_term_edit_menu_alter(&$items, $task) {
   $callback = $items['taxonomy/term/%taxonomy_term/edit']['page callback'];
   // Override the term edit handler for our purpose.
   if ($callback == 'drupal_get_form' || variable_get('taxonomy_panels_override_anyway', FALSE)) {
-    // this is overriding the menu system
     $items['taxonomy/term/%taxonomy_term/edit']['page callback'] = 'taxonomy_panels_term_edit';
+    $items['taxonomy/term/%taxonomy_term/edit']['page arguments'] = array(2);
     $items['taxonomy/term/%taxonomy_term/edit']['file path'] = $task['path'];
     $items['taxonomy/term/%taxonomy_term/edit']['file'] = $task['file'];
   }
@@ -60,23 +60,19 @@ function taxonomy_panels_term_edit_menu_alter(&$items, $task) {
     return;
   }
 
-  //Also catch node/add handling:
-  foreach (taxonomy_get_vocabularies() as $type) {
-    $path = 'taxonomy/' . str_replace('_', '-', $type->type) . '/add';
-    if ($items[$path]['page callback'] != 'drupal_get_form') {
-      if (!empty($GLOBALS['taxonomy_panels_enabling_term_edit'])) {
-        drupal_set_message(t('Taxonomy panels module is unable to override @path because some other module already has overridden with %callback. Node edit will be enabled but that edit path will not be overridden.', array('@path' => $path, '%callback' => $items[$path]['page callback'])), 'warning');
-      }
-      continue;
+  // Also catch admin/structure/taxonomy/%taxonomy_vocabulary_machine_name/add handling:
+  $path = 'admin/structure/taxonomy/%taxonomy_vocabulary_machine_name/add';
+  if ($items[$path]['page callback'] != 'drupal_get_form') {
+    if (!empty($GLOBALS['taxonomy_panels_enabling_term_edit'])) {
+      drupal_set_message(t('Taxonomy panels module is unable to override @path because some other module already has overridden with %callback.', array('@path' => $path, '%callback' => $items[$path]['page callback'])), 'warning');
     }
-
-    //$items[$path]['page callback'] = 'page_manager_node_add';
-    $items[$path]['page callback'] = 'drupal_get_form';
-    // maybe we have to add extra arguments here
+    continue;
+  }
+  else {
+    $items[$path]['page callback'] = 'taxonomy_panels_term_add';
+    $items[$path]['page arguments'] = array(3);
     $items[$path]['file path'] = $task['path'];
     $items[$path]['file'] = $task['file'];
-    // Why str_replace things back?
-    $items[$path]['page arguments'] = array($type->type);
   }
 }
 
@@ -90,15 +86,18 @@ function taxonomy_panels_term_edit_menu_alter(&$items, $task) {
 function taxonomy_panels_term_edit($term) {
 
   $task = page_manager_get_task('term_edit');
-  //$task = taxonomy_panels_get_task('term_edit');
-
-  // Load the node into a context.
+  
   ctools_include('context');
   ctools_include('context-task-handler');
-  $contexts = ctools_context_handler_get_task_contexts($task, '', array($term));
+  ctools_include('context', 'taxonomy_panels', 'includes');
 
-  $arg = array(isset($term->tid) ? $term->tid : $term->vid);
+  // Fetch the term edit form.
+  // $contexts = ctools_context_handler_get_task_contexts($task, '', array($term));
+  $contexts = taxonomy_panels_context_handler_get_task_contexts($task, '', array($term));
+
+  $arg = array(isset($term->tid) ? $term->tid : NULL);
   $output = ctools_context_handler_render($task, '', $contexts, $arg);
+
   if ($output === FALSE) {
     // Fall back!
     // We've already built the form with the context, so we can't build it again, or
@@ -113,37 +112,34 @@ function taxonomy_panels_term_edit($term) {
 /**
  * Callback to handle the process of adding a term.
  *
- * This creates a basic $term and passes that off to page_manager_term_edit().
- * It is modeled after Drupal's node_add() function.
- *
- * Unlike node_add() we do not need to check node_access because that was
- * already checked by the menu system.
+ * This creates a basic $term and passes that off to taxonomy_panels_term_edit().
  */
-function taxonomy_panels_term_add($type) {
+function taxonomy_panels_term_add($vocabulary) {
   global $user;
-
-  $types = taxonomy_get_vocabularies();
 
   // Initialize settings:
   $term = (object) array(
-    'uid' => $user->uid,
-    'name' => (isset($user->name) ? $user->name : ''),
-    'type' => $type,
-    'language' => LANGUAGE_NONE,
+    'name' => '',
+    'description' => '',
+    'format' => NULL,
+    'vocabulary_machine_name' => isset($vocabulary) ? $vocabulary->machine_name : NULL,
+    'tid' => NULL,
+    'weight' => 0,
+    'vid' => $vocabulary->vid,
   );
 
-  drupal_set_title(t('Create @name', array('@name' => $types[$type]->name)));
+  drupal_set_title(t('Add term'));
   return taxonomy_panels_term_edit($term);
 }
 
 /**
  * Callback to get arguments provided by this task handler.
  *
- * Since this is the node edit and there is no UI on the arguments, we
+ * Since this is the term edit and there is no UI on the arguments, we
  * create dummy arguments that contain the needed data.
  */
 function taxonomy_panels_term_edit_get_arguments($task, $subtask_id) {
-  $task_array = array(
+  return array(
     array(
       'keyword' => 'term',
       'identifier' => t('Term being edited'),
@@ -152,9 +148,6 @@ function taxonomy_panels_term_edit_get_arguments($task, $subtask_id) {
       'settings' => array(),
     ),
   ); 
-  // dpm($task_array);
-  //
-
 }
 
 /**
