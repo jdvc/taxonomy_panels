@@ -8,7 +8,7 @@ function taxonomy_panels_ctools_plugin_directory($owner, $plugin_type) {
   if ($owner == 'page_manager' && $plugin_type == 'tasks') {
     return 'plugins/' . $plugin_type;
   }
-  if ($owner == 'ctools' && in_array($plugin_type, array('contexts', 'arguments', 'relationships'))) {
+  if ($owner == 'ctools' && in_array($plugin_type, array('contexts', 'arguments', 'relationships', 'content_types'))) {
     return 'plugins/' . $plugin_type;
   }
 }

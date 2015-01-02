@@ -65,7 +65,7 @@ function taxonomy_panels_term_add_form_settings_form_submit($form, &$form_state)
  */
 function taxonomy_panels_create_term_add_form($empty, $data = NULL, $conf = FALSE) {
   // We want to create the taxonomy add form, so we need to add the form contexts too.
-  $context = new ctools_context(array('form', 'term_add_form', 'term'));
+  $context = new ctools_context(array('form', 'term_form', 'term_add_form', 'term'));
   // This is the plugin file name.
   $context->plugin = 'term_add_form';
  
