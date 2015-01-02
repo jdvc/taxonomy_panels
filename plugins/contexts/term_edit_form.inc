@@ -31,7 +31,7 @@ $plugin = array(
 
 function taxonomy_panels_context_create_term_edit_form($empty, $term = NULL, $conf = FALSE) {
   static $creating = FALSE;
-  $context = new ctools_context(array('form', 'term_edit_form', 'term'));
+  $context = new ctools_context(array('form', 'term_edit_form', 'term', 'taxonomy_term', 'entity:taxonomy_term'));
   $context->plugin = 'term_edit_form';
 
   if ($empty || ($creating)) {
